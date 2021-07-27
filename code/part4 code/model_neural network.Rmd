@@ -1,0 +1,140 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+trainDat = read.csv('feature_selection_dummies.csv', header = TRUE)
+testDat = read.csv('feature_selection_dummies_test.csv', header = TRUE)
+
+```
+
+```{r}
+require(neuralnet)
+require(nnet)
+require(ggplot2)
+set.seed(10)
+```
+```{r}
+trainDat$interest_level <- as.character(trainDat$interest_level)
+intClass = rep(1,nrow(trainDat))#1 for low, 2 for medium, 3 for high
+intClass[trainDat$interest_level == '0'] = 'low'
+intClass[trainDat$interest_level == '1'] = 'median'
+intClass[trainDat$interest_level == '2'] = 'high'
+trainDat$interest_level = intClass
+```
+
+# neural network with caret
+
+```{r}
+library(caret)
+TrainingParameters <- trainControl(method = "repeatedcv", number = 5, repeats=5)
+#nnetGrid <-  expand.grid(size = seq(from = 1, to = 10, by = 1),
+#                        decay = seq(from = 0.1, to = 0.5, by = 0.1))
+NNModel <- train(interest_level ~ ., data = trainDat,
+                  method = "nnet",
+                  trControl= TrainingParameters,
+                  preProcess=c("scale","center"),
+                  #tuneGrid = nnetGrid,
+                  na.action = na.omit
+)
+
+NNPredictions <-predict(NNModel, testData,type='prob')
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+nn <- neuralnet(interest_level~.,
+                data = trainDat,
+                #hidden = c(13, 10, 3),
+                hidden = c(10),
+                act.fct = "logistic",
+                learningrate=.05,
+                linear.output = FALSE,
+                err.fct = "sse",
+                lifesign = "minimal")
+
+```
+
+
+```{r}
+nn.results <- compute(nn, model.matrix(~.,testDat[,-1]))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+#TrainingParameters <- trainControl(method = "repeatedcv", number = 5, repeats=5, classProbs = TRUE)
+TrainingParameters <- trainControl(classProbs = TRUE)
+# training model with SVM
+
+SVModel <- train(interest_level ~ ., data = trainDat,
+                 method = "svmPoly",
+                 trControl= TrainingParameters,
+                 tuneGrid = data.frame(degree = 1,
+                                       scale = 1,
+                                       C = 1
+                                       ),
+                 probability = TRUE
+)
+
+```
+
+```{r}
+SVMPredictions <-predict(SVModel, testDat)
+SVMPredictions
+```
+
+
+
+
+
+```{r}
+set.seed(1)
+fit <-neuralnet(B+M~., data = wbcd_train_n, hidden =c(4, 4),linear.output = FALSE)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+nn <- neuralnet(interest_level~.,
+                data = trainDat,
+                #hidden = c(13, 10, 3),
+                hidden = c(10),
+                act.fct = "logistic",
+                learningrate=.05,
+                linear.output = FALSE,
+                err.fct = "sse",
+                lifesign = "minimal")
+
+```
+```{r}
+nn.results <- compute(nn, model.matrix(~.,testDat[,-1]))
+```
+

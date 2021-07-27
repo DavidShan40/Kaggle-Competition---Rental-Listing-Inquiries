@@ -1,0 +1,216 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+dataset: column 8-26: selected features
+column 27+: from PCA
+
+```{r}
+trainDat = read.csv('train_engineered_new.csv', header = TRUE)
+testDat = read.csv('test_engineered_new.csv', header = TRUE)
+trainDat$interest_level <- as.character(trainDat$interest_level)
+trainDat
+```
+
+# delete outliers
+
+skewness for continous columns
+```{r}
+library(e1071)   
+for(i in 2:5){
+  print(skewness(trainDat[,i]))}
+print(skewness(trainDat[,44])) # price
+```
+
+minmax scaler for latitude longitude price (continuous variable)
+```{r}
+
+train_min <- as.numeric(apply(trainDat, 2, min))
+train_max <- as.numeric(apply(trainDat, 2, max))
+
+for (i in c(4,5,44)) {
+  trainDat[, i] <- (trainDat[, i] - train_min[i]) / (train_max[i] - train_min[i]) 
+  # use the min and max from training data to normalize the testing data
+  testDat[, i] <- (testDat[, i] - train_min[i]) / (train_max[i] - train_min[i]) 
+}
+
+```
+
+```{r}
+boxplot(trainDat[,c(4,5,44)])
+```
+
+# looks like each column has outliers
+
+```{r}
+# save for text analysis
+trainDat[(trainDat$latitude<0.85 | trainDat$longitude > 0.5 | trainDat$longitude < 0.3 | trainDat$price > 0.08), ]
+```
+delete 2541, 4685, 6174, 7707th row for text analysis
+
+```{r}
+trainDat <- trainDat[!(trainDat$latitude<0.85 | trainDat$longitude > 0.5 | trainDat$longitude < 0.3 | trainDat$price > 0.08), ]
+```
+
+```{r}
+boxplot(trainDat[,c(4,5,44)])
+```
+
+
+
+```{r}
+for(i in c(4,5,44)){
+  print(skewness(trainDat[,i]))}
+```
+
+```{r}
+# scatter plot
+library(ggplot2)
+sp2<-ggplot(trainDat, aes(x=latitude, y=longitude, color=interest_level)) + geom_point()
+sp2
+```
+
+train_min <- as.numeric(apply(trainDat, 2, min))
+train_max <- as.numeric(apply(trainDat, 2, max))
+
+for (i in c(4,5,44)) {
+  trainDat[, i] <- (trainDat[, i] - train_min[i]) / (train_max[i] - train_min[i]) 
+  # use the min and max from training data to normalize the testing data
+  testDat[, i] <- (testDat[, i] - train_min[i]) / (train_max[i] - train_min[i]) 
+}
+
+
+
+# looks like better
+
+Now, 7th column is street_address that still not cleanned.
+the street_address has only last word has some meaning(street, ave, St., Avenue, Ave, ...) We can use RNN deep learning model to detect it. For now, just delete it.
+
+Now the data is cleanned and we can use all attributes. 
+
+#Select important features
+
+#feature importance
+
+rpart
+#https://stackoverflow.com/questions/21029019/parallel-execution-of-train-in-caret-fails-with-function-not-found parallel option
+
+```{r}
+library(caret)
+set.seed(100)
+trainDat_copy <- trainDat
+trainDat_copy$interest_level <- as.character(trainDat_copy$interest_level)
+rPartMod <- train(interest_level ~ ., data = trainDat_copy, method = "rpart")
+#family = "multinomial"
+
+```
+
+```{r}
+rpartImp <- varImp(rPartMod)
+print(rpartImp)
+```
+
+choose these features: price + no.fee	+ hardwood + dishwasher + X1 + longitude
+
+```{r}
+# random forest
+set.seed(100)
+trainDat_copy <- trainDat
+trainDat_copy$interest_level <- as.character(trainDat_copy$interest_level)
+rfMod <- train(interest_level ~ ., data = trainDat_copy, method = "rf")
+```
+```{r}
+rfImp <- varImp(rfMod)
+print(rfImp)
+```
+
+Boruta
+https://www.datacamp.com/community/tutorials/feature-selection-R-boruta?utm_source=adwords_ppc&utm_campaignid=898687156&utm_adgroupid=48947256715&utm_device=c&utm_keyword=&utm_matchtype=b&utm_network=g&utm_adpostion=&utm_creative=229765585183&utm_targetid=aud-299261629574:dsa-429603003980&utm_loc_interest_ms=&utm_loc_physical_ms=9000712&gclid=Cj0KCQjwgtWDBhDZARIsADEKwgPb0dd8xS7FCzwB5cb2uW-ImaZJvOgPKwoOLGYCNzi-ci-QEfn9hM4aAjXQEALw_wcB
+
+https://www.youtube.com/watch?v=VEBax2WMbEA
+
+```{r}
+library(Boruta)
+set.seed(1)
+boruta = Boruta(factor(interest_level) ~ ., data = trainDat_copy, doTrace = 2, maxRuns = 50)
+print(boruta)
+plotImpHistory(boruta)
+getNonRejectedFormula(boruta)
+```
+
+3 tentative attributes left: garden.patio, live.in.super, parking.space;
+factor(interest_level) ~ bathrooms + bedrooms + latitude + longitude + 
+    balcony + cats.allowed + common.outdoor.space + dining.room + 
+    dishwasher + dogs.allowed + doorman + elevator + exclusive + 
+    fitness.center + furnished + garage + garden.patio + hardwood + 
+    high.ceilings + high.speed.internet + laundry.in.building + 
+    laundry.in.unit + laundry.room + live.in.super + loft + lowrise + 
+    new.construction + no.fee + outdoor.space + parking.space + 
+    pre.war + private.outdoor.space + reduced.fee + renovated + 
+    roof.deck + simplex + X0 + X1 + X2 + price
+
+X0, X1, X2 are from PCA. I deleted them later.
+
+# final selected features
+
+```{r}
+columns <- 'price + no.fee	+ hardwood + dishwasher + X1 + longitude +  bathrooms + bedrooms + latitude + longitude + balcony + cats.allowed + common.outdoor.space + dining.room +     dishwasher + dogs.allowed + doorman + elevator + exclusive +  fitness.center + furnished + garage + garden.patio + hardwood +     high.ceilings + high.speed.internet + laundry.in.building +     laundry.in.unit + laundry.room + live.in.super + loft + lowrise +     new.construction + no.fee + outdoor.space + parking.space +     pre.war + private.outdoor.space + reduced.fee + renovated +     roof.deck + simplex + X0 + X1 + X2 + price'
+col_result <- unique(unlist(strsplit(columns, "\\+")))
+coef <- capture.output(cat(col_result, sep = '+'))
+coef
+
+```
+
+formula: price + no.fee + hardwood + dishwasher + X1 + longitude +  bathrooms + bedrooms + latitude + balcony + cats.allowed + common.outdoor.space + dining.room +     dishwasher + dogs.allowed + doorman + elevator + exclusive +  fitness.center + furnished + garage + garden.patio +     high.ceilings + high.speed.internet + laundry.in.building +     laundry.in.unit + laundry.room + live.in.super + loft + lowrise +     new.construction + no.fee + outdoor.space + parking.space +     pre.war + private.outdoor.space + reduced.fee + renovated +     roof.deck + simplex + X0 + X2 + price
+
+```{r}
+#use this one
+
+trainDat$interest_level <- as.numeric(trainDat$interest_level)
+library(caret)
+dummies <- dummyVars(formula = ~ interest_level + price + no.fee + hardwood + dishwasher + X1 + longitude +  bathrooms + bedrooms + latitude + balcony + cats.allowed + common.outdoor.space + dining.room +     dishwasher + dogs.allowed + doorman + elevator + exclusive +  fitness.center + furnished + garage + garden.patio +     high.ceilings + high.speed.internet + laundry.in.building +     laundry.in.unit + laundry.room + live.in.super + loft + lowrise +     new.construction + no.fee + outdoor.space + parking.space +     pre.war + private.outdoor.space + reduced.fee + renovated +     roof.deck + simplex + X0 + X2 + price, data = trainDat)
+train_dummies = predict(dummies, newdata = trainDat)
+write.csv(train_dummies, file = 'feature_selection_dummies_0417.csv', row.names = FALSE)
+
+dummies <- dummyVars(formula = ~ price + no.fee + hardwood + dishwasher + X1 + longitude +  bathrooms + bedrooms + latitude + balcony + cats.allowed + common.outdoor.space + dining.room +     dishwasher + dogs.allowed + doorman + elevator + exclusive +  fitness.center + furnished + garage + garden.patio +     high.ceilings + high.speed.internet + laundry.in.building +     laundry.in.unit + laundry.room + live.in.super + loft + lowrise +     new.construction + no.fee + outdoor.space + parking.space +     pre.war + private.outdoor.space + reduced.fee + renovated +     roof.deck + simplex + X0 + X2 + price, data = trainDat)
+test_dummies = predict(dummies, newdata = testDat)
+write.csv(test_dummies, file = 'feature_selection_dummies_test_0417.csv', row.names = FALSE)
+```
+
+
+
+```{r}
+train_dummies
+```
+
+
+```{r}
+testDat
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

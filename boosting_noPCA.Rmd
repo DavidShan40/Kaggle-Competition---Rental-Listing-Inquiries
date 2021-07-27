@@ -1,0 +1,48 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(randomForest)
+library(caret)
+```
+
+
+```{r}
+trainDat = read.csv('feature_selection_dummies_1.csv', header = TRUE)
+testDat = read.csv('feature_selection_dummies_test_1.csv', header = TRUE)
+trainDat$interest_level <- as.character(trainDat$interest_level)
+```
+
+```{r}
+control <- trainControl(method='repeatedcv', 
+                        number=5, 
+                        repeats=1)
+```
+
+```{r}
+tunegrid <- expand.grid(mtry=7)
+rf_default <- train(factor(interest_level)~., 
+                      data=trainDat, 
+                      method='rf',
+                      tuneGrid=tunegrid) 
+                      #trControl=control)
+print(rf_default)
+```
+
+
+```{r}
+rf.pred = predict(rf_default, testDat,type='prob')
+colnames(rf.pred) <- c('low','medium','high')
+rf.pred
+```
+
+
+```{r}
+out.pred = cbind(data.frame(ID = 1:nrow(testDat)), rf.pred)
+write.csv(out.pred, file = 'rf_raw.csv', row.names = FALSE)
+
+```
+```
+
